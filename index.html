@@ -45,91 +45,91 @@ TODO
 - icons on bottom as tabs switcher
 */
 
-class disValue{
-    constructor(topic, htmlObjName, defaultValue, avgFromHowManyIters, roundTo){
-        this.topic = topic;
-        this.htmlObjName = htmlObjName;
-        this.defaultValue = defaultValue;
-        this.htmlObj = $("#"+this.htmlObjName);
 
-        this.avgHowMany = avgFromHowManyIters;
-        this.iter = 0;
-        this.avgTable = [];
-        for(i=0;i<this.avgHowMany;i++)
-            this.avgTable[i] = 0;
+disValue = (function (topic, htmlObjName, defaultValue, avgFromHowManyIters, roundTo) {
+    
+    this.topic = topic;
+    this.htmlObjName = htmlObjName;
+    this.defaultValue = defaultValue;
+    this.htmlObj = $("#"+this.htmlObjName);
 
-        this.roundTo = roundTo;
-        
-    }
+    this.avgHowMany = avgFromHowManyIters;
+    this.iter = 0;
+    this.avgTable = [];
+    for(i=0;i<this.avgHowMany;i++)
+        this.avgTable[i] = 0;
 
-    makeAvg(value){
-        if(this.avgHowMany == 0)
-            return value;
+    this.roundTo = roundTo;
 
-        if( value != "" ){
-            try{
-                this.iter++;
-                var b = (this.iter%this.avgHowMany);
-                //console.log("avg["+value);
-                //console.log("float"+parseFloat(value));
-                //console.log("avgTable.length"+this.avgTable.length+"adding to"+b);
-                this.avgTable[b] = parseFloat(value);
-                var r = 0;
-                //console.log(0);
-                for(i=0;i<this.avgHowMany;i++){
-                    r+= this.avgTable[i];
-                }
-                //console.log("a");
-                
-                value = r / this.avgHowMany;
-                //console.log("avg"+value)
-            }catch(e){
-                console.log("error"+e);
-            }
-        }
+    this.timeOut = 5;
+    this.lastUpdate = 0;
 
+});
+
+disValue.prototype.makeAvg = function(value){
+    if(this.avgHowMany == 0)
         return value;
-    }
 
-    makeRound(value){
+    if( value != "" ){
         try{
-            return value.toFixed(this.roundTo);
+            this.iter++;
+            var b = (this.iter%this.avgHowMany);
+            //console.log("avg["+value);
+            //console.log("float"+parseFloat(value));
+            //console.log("avgTable.length"+this.avgTable.length+"adding to"+b);
+            this.avgTable[b] = parseFloat(value);
+            var r = 0;
+            //console.log(0);
+            for(i=0;i<this.avgHowMany;i++){
+                r+= this.avgTable[i];
+            }
+            //console.log("a");
+            
+            value = r / this.avgHowMany;
+            //console.log("avg"+value)
         }catch(e){
-            console.log("error"+e+" htmlObjName"+this.htmlObjName);
+            console.log("error"+e);
         }
-
-
-        return value;
     }
 
-    chkTopic(topic, value){
-        if( topic == this.topic ){
-            value = this.makeAvg(value);
-            value = this.makeRound(value);
-            this.newValue(value);
-            return true;            
-        }else
-            return false;
-
-    }
-    
-    newValue(value){
-        // this is for overrite
-        if(value=="")
-            value = this.defaultValue;        
-        this.htmlObj.text(value);
-    }
-    
+    return value;
 }
-/*
-class disDepth extends disValue{
-    newValue(value){
-        if(value=="")
-            value = this.defaultValue;
-        this.htmlObj.text(value);
+
+disValue.prototype.makeRound = function(value){
+    try{
+        return value.toFixed(this.roundTo);
+    }catch(e){
+        console.log("error"+e+" htmlObjName"+this.htmlObjName);
     }
+    return value;
 }
-*/
+
+disValue.prototype.chkTimeOut = function(){
+    //console.log( "now"+Math.floor(Date.now() / 1000)+"lastMessage"+this.lastUpdate);
+    if( (Math.floor(Date.now() / 1000)-this.lastUpdate )>this.timeOut && this.lastUpdate!=0 )
+        this.newValue("-tO");
+}
+
+disValue.prototype.chkTopic = function(topic, value){
+    if( topic == this.topic ){
+        value = this.makeAvg(value);
+        value = this.makeRound(value);
+        this.newValue(value);
+        this.lastUpdate = Math.floor(Date.now() / 1000);
+        return true;            
+    }else
+        return false;
+
+}
+
+disValue.prototype.newValue = function(value){
+    // this is for overrite
+    if(value=="")
+        value = this.defaultValue;        
+    this.htmlObj.text(value);
+}
+
+
 var disObjects = [];
 function initDisObjects(){
     disObjects = [
@@ -139,15 +139,35 @@ function initDisObjects(){
         ];
 }
 
+/*
+disText = (function(global){
+    console.log("disText");
+    this.v = "v z this";
+});
+disText.prototype.print = function(a){
+    console.log("disText.print("+a+");"+this.v);
+};
+
+var a0 = new disText();
+a0.print("a0 hello!");
+disText.v = "v nowe";
+a0.print("a0 po edycji .v");
+*/
+
 var lastMessage = 0;
 function mqttStatusCheck(){
     
     var n = Math.floor(Date.now() / 1000);
-    console.log("iter check lastMessage"+lastMessage+" n"+n);
+    //console.log("iter check lastMessage"+lastMessage+" n"+n);
     if( (n - lastMessage )<5 )
         $("#mqttStatus").text("online");
     else
         $("#mqttStatus").text("offline");
+
+
+    for(i=0,ic=disObjects.length;i<ic;i++)
+        disObjects[i].chkTimeOut();
+        
 
     setTimeout("mqttStatusCheck()",1000);
 }
