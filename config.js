@@ -1,0 +1,10 @@
+//host = '127.0.0.1';	// hostname or IP address
+host = '192.168.99.10';
+//host = '192.168.44.117';
+port = 8080;
+topic = '/des/#';		// topic to subscribe to
+useTLS = false;
+username = null;
+password = null;
+path = '';
+cleansession = true;
