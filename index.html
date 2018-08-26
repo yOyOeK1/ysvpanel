@@ -32,6 +32,7 @@ table tr td{
     <title>mqtt instruments</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="style.css">
+    <link rel="icon" type="image/png" href="./icon.png" />
     <script src="mqttws31.js" type="text/javascript"></script>
     <script src="jquery.min.js" type="text/javascript"></script>
     <script src="config.js" type="text/javascript"></script>
@@ -137,6 +138,19 @@ function initDisObjects(){
         new disValue("/des/sensors/GPS/cog", "vCog", "---",3,0)
         ];
 }
+
+var lastMessage = 0;
+function mqttStatusCheck(){
+    
+    var n = Math.floor(Date.now() / 1000);
+    console.log("iter check lastMessage"+lastMessage+" n"+n);
+    if( (n - lastMessage )<5 )
+        $("#mqttStatus").text("online");
+    else
+        $("#mqttStatus").text("offline");
+
+    setTimeout("mqttStatusCheck()",1000);
+}
     var mqtt;
     var reconnectTimeout = 2000;
     var objReady = false;
@@ -189,6 +203,7 @@ function initDisObjects(){
 
     function onConnectionLost(response) {
         try{
+            lastMessage = 0;
             $('#status').val("connection lost: " + responseObject.errorMessage + ". Reconnecting");
             setTimeout(MQTTconnect, reconnectTimeout);
         }catch(e){}
@@ -233,6 +248,8 @@ function initDisObjects(){
     function parse(topic, payload){
         if( !objReady )
             return false;
+
+        lastMessage = Math.floor(Date.now() / 1000);
 
         for(i=0,ic=disObjects.length;i<ic;i++)
             if( disObjects[i].chkTopic(topic, payload) )
@@ -379,6 +396,7 @@ $(document).ready(function() {
     
     makeTabs();
     initDisObjects();
+    mqttStatusCheck();
 });
 
     </script>
@@ -388,7 +406,7 @@ $(document).ready(function() {
 </header>
 <body>
 
-<div id="bottomBar"></div>
+<div id="bottomBar"><div id="mqttStatus">?</div></div>
 
 <div id="tab0" name="base" icon="./icon_instruments.png">
 <table border="1" width="100%" >
