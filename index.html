@@ -125,8 +125,15 @@ disValue.prototype.chkTopic = function(topic, value){
 disValue.prototype.newValue = function(value){
     // this is for overrite
     if(value=="")
-        value = this.defaultValue;        
-    this.htmlObj.text(value);
+        value = this.defaultValue;
+
+    console.log(this.htmlObjName); 
+    if( this.htmlObjName.substring(0,2) == "vi" ){
+        console.log("vi"+this.htmlObjName+"v:"+value);
+        this.htmlObj.val(value);
+    }else{
+        this.htmlObj.text(value);
+    }
 }
 
 
@@ -135,7 +142,8 @@ function initDisObjects(){
     disObjects = [
         new disValue("/des/sensors/Depth", "vDepth", "--.-",3,1),
         new disValue("/des/sensors/GPS/sog", "vSog", "-.--",5,2),
-        new disValue("/des/sensors/GPS/cog", "vCog", "---",3,0)
+        new disValue("/des/sensors/GPS/cog", "vCog", "---",3,0),
+        new disValue("/des/mux/depthOffset", "viDepthOffset", "0.0",1,1)
         ];
 }
 
@@ -370,6 +378,9 @@ function mkA(v){
     }else if( v == "poweroff" ){
         if(confirm("You shure poweroff of the multiplexer?"))
             sendCMD("000PC,poweroff");
+    }else if( v == "depthOffset" ){
+        var d = $("#viDepthOffset").val();
+        sendCMD("000PC,depthOffset,"+d);
     }else if( v.substring(0,6) == "tabSet"){
         t = parseInt(v.substring(6));
         console.log(v.substring(6));
@@ -426,7 +437,7 @@ $(document).ready(function() {
 </header>
 <body>
 
-<div id="bottomBar"><div id="mqttStatus">?</div></div>
+<div id="bottomBar"><div id="mqttStatus" style="display: inline;">?</div></div>
 
 <div id="tab0" name="base" icon="./icon_instruments.png">
 <table border="1" width="100%" >
@@ -463,6 +474,8 @@ $(document).ready(function() {
 <div id="tab1" name="mux" icon="./icon_mux.png">
     <input type="button" onclick="mkA('reboot');" value="reboot"><br>
     <input type="button" onclick="mkA('poweroff');" value="poweroff"><br>
+    <input type="input" name="depthOffset" id="viDepthOffset" value="0.0">
+        <input type="button" name="btSendDepthOffset" value="set" onclick="mkA('depthOffset');">
 </div>
 
 
