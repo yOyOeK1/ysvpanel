@@ -19,6 +19,14 @@
 	text-align: right;
 	font-size: 500%;
 }
+.textMini{
+    display: inline;
+}
+.chartLines{
+    display: inline;
+    float: left;
+    position: :relative;
+}
 table tr td{
 	border-style: 1px solid gray;
 }
@@ -29,7 +37,7 @@ table tr td{
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
-    <title>mqtt instruments</title>
+    <title>ysvpanel</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" type="text/css" href="style.css">
     <link rel="icon" type="image/png" href="./icon.png" />
@@ -46,7 +54,7 @@ TODO
 */
 
 
-disValue = (function (topic, htmlObjName, defaultValue, avgFromHowManyIters, roundTo) {
+var disValue = (function (topic, htmlObjName, defaultValue, avgFromHowManyIters, roundTo) {
     
     this.topic = topic;
     this.htmlObjName = htmlObjName;
@@ -64,6 +72,27 @@ disValue = (function (topic, htmlObjName, defaultValue, avgFromHowManyIters, rou
     this.timeOut = 5;
     this.lastUpdate = 0;
 
+    this.chartIters = 50;
+    if(1){
+    try{
+        this.mkChart = true;
+        this.chartMax = 0;
+        this.chartMin = 0;
+        $("#chart"+htmlObjName).html('<canvas id="canvas'+htmlObjName+'" width="100" height="100"></canvas>');
+        this.canvas = document.getElementById("canvas"+htmlObjName);
+        this.ctx = this.canvas.getContext("2d");
+        this.cW = this.canvas.width;
+        this.cH = this.canvas.height;   
+        this.chartData = [];
+        for(i=0;i<this.chartIters;i++)
+            this.chartData[i] = 0.0;
+        this.chartIter = 0;
+    }catch(e){
+        console.log("error disValue "+e);
+        this.mkChart = false;
+    }
+    }
+
 });
 
 disValue.prototype.makeAvg = function(value){
@@ -74,19 +103,13 @@ disValue.prototype.makeAvg = function(value){
         try{
             this.iter++;
             var b = (this.iter%this.avgHowMany);
-            //console.log("avg["+value);
-            //console.log("float"+parseFloat(value));
-            //console.log("avgTable.length"+this.avgTable.length+"adding to"+b);
             this.avgTable[b] = parseFloat(value);
             var r = 0;
-            //console.log(0);
             for(i=0;i<this.avgHowMany;i++){
                 r+= this.avgTable[i];
             }
-            //console.log("a");
             
             value = r / this.avgHowMany;
-            //console.log("avg"+value)
         }catch(e){
             console.log("error"+e);
         }
@@ -96,10 +119,11 @@ disValue.prototype.makeAvg = function(value){
 }
 
 disValue.prototype.makeRound = function(value){
+    //console.log("makeRound["+value+"]");
     try{
         return value.toFixed(this.roundTo);
     }catch(e){
-        console.log("error"+e+" htmlObjName"+this.htmlObjName);
+        console.log("error.makeRound"+e+" htmlObjName"+this.htmlObjName);
     }
     return value;
 }
@@ -112,6 +136,7 @@ disValue.prototype.chkTimeOut = function(){
 
 disValue.prototype.chkTopic = function(topic, value){
     if( topic == this.topic ){
+        value = this.preNewValue(value);    
         value = this.makeAvg(value);
         value = this.makeRound(value);
         this.newValue(value);
@@ -122,28 +147,121 @@ disValue.prototype.chkTopic = function(topic, value){
 
 }
 
+disValue.prototype.mkChartIter = function(value){
+    ts = Date.now();
+    try{
+        var v = parseFloat(value);
+        this.chartData.unshift(v);
+        this.chartData.pop();
+        if( v > this.chartMax )
+            this.chartMax = v;
+        if( this.chartMin > v )
+            this.chartMin = v;
+
+        //this.ctx.clearRect(0,0,this.cW, this.cH);
+        this.ctx.fillStyle="#fff0ff";
+        //this.ctx.fillRect(0,0,this.cW, this.cH);
+        this.ctx.clearRect(0,0,this.cW, this.cH);
+        this.ctx.fillStyle="#000000";
+
+        this.ctx.font = "12px Arial";
+        //this.ctx.fillText("w:"+this.cW+" h:"+this.cH+" i:"+this.chartIter, 10, 15);
+        //this.ctx.fillText("max:"+this.chartMax+" min:"+this.chartMin, 10, 35);
+
+        wp = this.cW/this.chartIters;
+        hp = this.cH/(this.chartMax-this.chartMin); // max value :/
+        var nMax = 0.0;
+        var nMin = 360.0;
+        var vAvg = 0.0;
+        this.ctx.strokeStyle = "#000000";
+        this.ctx.beginPath();
+        this.ctx.moveTo(Math.round(this.cW+10), Math.round(this.cH/2) );            
+        for(var i=0;i<this.chartIters;i++){
+            d = this.chartData[i]; 
+            vAvg+= d;
+            this.ctx.lineTo( Math.round((this.chartIters-i)*wp), Math.round(this.cH-((d-this.chartMin)*hp)) );
+
+            if( nMax < d)
+                nMax = d;
+            if( nMin > d )
+                nMin = d;
+
+        }
+        vAvg /= this.chartIters;
+        this.ctx.stroke();
+
+        this.ctx.strokeStyle = "#00dd00";
+        this.ctx.setLineDash([2, 4]);
+        this.ctx.beginPath();
+        this.ctx.moveTo(0, this.cH-(((vAvg)-this.chartMin)*hp) ); 
+        this.ctx.lineTo(this.cW, this.cH-(((vAvg)-this.chartMin)*hp) );            
+        this.ctx.stroke();
+        this.ctx.setLineDash([]);
+        
+
+        this.chartMax = nMax*1.25;
+        this.chartMin = nMin*0.75;
+
+        this.ctx.fillStyle = "#000000";
+        this.ctx.fillText(this.chartMax.toFixed(this.roundTo), this.cW-30, 11);
+        this.ctx.fillText(this.chartMin.toFixed(this.roundTo), this.cW-30, this.cH-3);
+        //this.ctx.fillText("avg"+vAvg, this.cW-60, this.cH/2);
+
+
+
+        this.chartIter++;
+        console.log("mkChartIter ["+this.htmlObjName+"] iter don in ("+(Date.now()-ts)+")msec");
+    }catch(e){
+        console.log("error mkChartIter"+e);
+    }
+}
+
+disValue.prototype.preNewValue = function(value){
+    return value;
+}
+
 disValue.prototype.newValue = function(value){
     // this is for overrite
     if(value=="")
         value = this.defaultValue;
 
-    console.log(this.htmlObjName); 
+    if( this.mkChart )
+        this.mkChartIter(value);
+
+
+    //console.log(this.htmlObjName.substring(0,2)+"<"+this.htmlObjName+" val["+value+"]"); 
     if( this.htmlObjName.substring(0,2) == "vi" ){
-        console.log("vi"+this.htmlObjName+"v:"+value);
+        //console.log("vi -> "+this.htmlObjName+"v:"+value);
         this.htmlObj.val(value);
     }else{
+        //console.log("v -> "+this.htmlObjName+" v:"+value+" text:"+this.htmlObj.text()+" obj:"+this.htmlObj.parent().html());        
         this.htmlObj.text(value);
     }
 }
 
 
+
+
 var disObjects = [];
 function initDisObjects(){
+
+    var disValueLat = new disValue("/des/sensors/GPS/lat", "vLat", "--.----",0,5);
+    disValueLat.preNewValue = function(value){
+        v = value / 100.00;
+        return v;
+    } 
+    var disValueLon = new disValue("/des/sensors/GPS/lon", "vLon", "--.----",0,5);
+    disValueLon.preNewValue = disValueLat.preNewValue;
+
     disObjects = [
         new disValue("/des/sensors/Depth", "vDepth", "--.-",3,1),
         new disValue("/des/sensors/GPS/sog", "vSog", "-.--",5,2),
         new disValue("/des/sensors/GPS/cog", "vCog", "---",3,0),
-        new disValue("/des/mux/depthOffset", "viDepthOffset", "0.0",1,1)
+        disValueLat,
+        disValueLon
+        //new disValue("/des/sensors/GPS/lat", "vLat", "--.----",0,4),
+        //new disValue("/des/sensors/GPS/lon", "vLon", "--.----",0,4),
+        //new disValue("/des/mux/depthOffset", "viDepthOffset", "0.0",1,1)
         ];
 }
 
@@ -378,9 +496,10 @@ function mkA(v){
     }else if( v == "poweroff" ){
         if(confirm("You shure poweroff of the multiplexer?"))
             sendCMD("000PC,poweroff");
-    }else if( v == "depthOffset" ){
-        var d = $("#viDepthOffset").val();
-        sendCMD("000PC,depthOffset,"+d);
+    //}else if( v == "depthOffset" ){
+     //   var d = $("#viDepthOffset").val();
+     //   //sendCMD("000PC,depthOffset,"+d);
+     //   sendCMD("depthOffset,"+d+",");
     }else if( v.substring(0,6) == "tabSet"){
         t = parseInt(v.substring(6));
         console.log(v.substring(6));
@@ -443,14 +562,16 @@ $(document).ready(function() {
 <table border="1" width="100%" >
 	<tr>
 		<td>
-			<div class="texBig" id="vDepth">---.-</div>
+            <div class="chartLines" id="chartvDepth"></div>                
+			<div class="texBig" id="vDepth">--.-</div>
 		</td>
 		<td width="40px">
-			<div class="texLab">depth</div>
+            <div class="texLab">depth</div>
 		</td>
 	</tr>
 	<tr>
 		<td>
+            <div class="chartLines" id="chartvCog"></div>
 			<div class="texBig" id="vCog">---</div>
 		</td>
 		<td>
@@ -459,6 +580,7 @@ $(document).ready(function() {
 	</tr>
 	<tr>
 		<td>
+            <div class="chartLines" id="chartvSog"></div>            
 			<div class="texBig" id="vSog">---</div>
 		</td>
 		<td>
@@ -466,7 +588,12 @@ $(document).ready(function() {
 		</td>
 	</tr>
 	<tr height="10%">
-		<td colspan="2"></td>
+		<td colspan="2">
+            <b>Lat: </b><div class="textMini" id="vLat">--.----</div> 
+            <b>Lon: </b><div class="textMini" id="vLon">--.----</div>
+            
+
+        </td>
 	</tr>
 </table>
 </div>
@@ -474,8 +601,10 @@ $(document).ready(function() {
 <div id="tab1" name="mux" icon="./icon_mux.png">
     <input type="button" onclick="mkA('reboot');" value="reboot"><br>
     <input type="button" onclick="mkA('poweroff');" value="poweroff"><br>
-    <input type="input" name="depthOffset" id="viDepthOffset" value="0.0">
+    <!--<b>depth offset for nmea bus:</b><br>
+    <input type="input" name="depthOffset" id="viDepthOffset" value="-.-">
         <input type="button" name="btSendDepthOffset" value="set" onclick="mkA('depthOffset');">
+    -->
 </div>
 
 
